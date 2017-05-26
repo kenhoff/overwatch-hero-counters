@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Overwatch Hero Counters</title>
+		<style media="screen">
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				text-align: center;
+			}
+
+			h1 {
+				text-align: center;
+			}
+
+			.prompt {
+				text-align: center;
+			}
+
+			.options {
+				display: flex;
+				justify-content: center;
+				text-align: center;
+			}
+
+			.option {
+				padding: 1em;
+				background-color: lightgray;
+				margin: 1em;
+				cursor: pointer;
+			}
+			#results {
+				display: flex;
+				justify-content: center;
+				flex-wrap: wrap;
+				text-align: center;
+			}
+			.individual-hero-result {
+				background-color: lightgray;
+				margin: 1em;
+				padding: 1em;
+			}
+			.individual-hero-result .title {
+				font-weight: bold;
+				margin-bottom: 1em;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Overwatch Hero Counters</h1>
+		<div id="form">
+
+		</div>
+		<p>(you can also use the left and right arrow keys)</p>
+		<div id="results">
+
+		</div>
+		<script type="text/javascript">
+			var heroes = [
+				"Genji",
+				"McCree",
+				"Pharah",
+				"Reaper",
+				"Soldier: 76",
+				"Sombra",
+				"Tracer",
+				"Bastion",
+				"Hanzo",
+				"Junkrat",
+				"Mei",
+				"Torbjörn",
+				"Widowmaker",
+				"D.Va",
+				"Orisa",
+				"Reinhardt",
+				"Roadhog",
+				"Winston",
+				"Zarya",
+				"Ana",
+				"Lúcio",
+				"Mercy",
+				"Symmetra",
+				"Zenyatta",
+			];
+			var results = [];
+			var form = document.getElementById("form")
+			currentQuestionObject = {};
+			var createQuestion = function(heroToCounter, heroOptionA, heroOptionB) {
+				form.innerHTML = `<div class="prompt">Which hero is a better counter against ${heroToCounter}?</div><div class="options"><div class="option" id="optionA">${heroOptionA}</div><div class="option" id="optionB">${heroOptionB}</div></div>`;
+				document.getElementById("optionA").addEventListener("click", function() {
+					recordResults(heroToCounter, heroOptionA, heroOptionB, heroOptionA)
+				})
+				document.getElementById("optionB").addEventListener("click", function() {
+					recordResults(heroToCounter, heroOptionA, heroOptionB, heroOptionB)
+				})
+			}
+			document.onkeydown = function(e) {
+				e = e || window.event;
+				// use e.keyCode
+				if (e.code == "ArrowLeft") {
+					recordResults(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB, currentQuestionObject.heroOptionA)
+				} else if (e.code == "ArrowRight") {
+					recordResults(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB, currentQuestionObject.heroOptionB)
+				}
+			};
+			var recordResults = function(heroToCounter, heroOptionA, heroOptionB, selection) {
+				var otherHero;
+				if (selection == heroOptionA) {
+					otherHero = heroOptionB;
+				} else {
+					otherHero = heroOptionA;
+				}
+				// console.log(`In a team fight against ${heroToCounter}, ${selection} is a better pick than ${otherHero}.`);
+				// now, figure out if this matchup has already occurred in the results section. find a result where heroToCounter matches, and where the combination of heroOptionA and heroOptionB is the same
+				resultIndex = results.findIndex(function(result) {
+					if (result.heroToCounter == heroToCounter) {
+						// heroOptionA and heroOptionB must be the same, or heroOptionB == heroOptionA && heroOptionA == heroOptionB
+						if ((result.heroOptionA == heroOptionA) && (result.heroOptionB == heroOptionB)) {
+							return true;
+						} else if ((result.heroOptionB == heroOptionA) && (result.heroOptionA == heroOptionB)) {
+							return true
+						} else {
+							return false
+						}
+					} else {
+						return false;
+					}
+				})
+				if (resultIndex != -1) {
+					// remove old result
+					results.splice(resultIndex, 1)
+				}
+				// push new result
+				results.push({
+					heroToCounter: heroToCounter,
+					heroOptionA: heroOptionA,
+					heroOptionB: heroOptionB,
+					selection: selection
+				})
+				createResults();
+				currentQuestionObject = generateQuestionObject();
+				createQuestion(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB);
+			}
+			var generateQuestionObject = function() {
+				var newHeroes = heroes.slice();
+				return {
+					heroToCounter: newHeroes.splice(Math.floor(Math.random() * newHeroes.length), 1)[0],
+					heroOptionA: newHeroes.splice(Math.floor(Math.random() * newHeroes.length), 1)[0],
+					heroOptionB: newHeroes.splice(Math.floor(Math.random() * newHeroes.length), 1)[0]
+				}
+			}
+
+			currentQuestionObject = generateQuestionObject();
+			createQuestion(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB);
+			var createResults = function() {
+				var resultsElement = document.getElementById("results");
+				// create initial formattedResults, with 0 counts across the board
+				var formattedResults = {}
+				// prefill formattedResults
+				// for (hero of heroes) {
+				// 	formattedResults[hero] = []
+				// 	for (counterHero of heroes) {
+				// 		formattedResults[hero].push({
+				// 			heroName: counterHero,
+				// 			numberOfPicks: 0
+				// 		})
+				// 	}
+				// }
+				// console.log(formattedResults);
+
+
+				// add counts into results, then sort
+				for (result of results) {
+					if (result.heroToCounter in formattedResults) {
+						var counteringHeroIndex = formattedResults[result.heroToCounter].findIndex(function(counteringHeroStats) {
+							return counteringHeroStats.heroName == result.selection;
+						})
+						if (counteringHeroIndex != -1) {
+							formattedResults[result.heroToCounter][counteringHeroIndex].numberOfPicks += 1;
+						} else {
+							formattedResults[result.heroToCounter].push({
+								heroName: result.selection,
+								numberOfPicks: 1
+							})
+						}
+					} else {
+						formattedResults[result.heroToCounter] = [{
+							heroName: result.selection,
+							numberOfPicks: 1
+						}];
+					}
+				}
+				for (var formattedResult in formattedResults) {
+					if (formattedResults.hasOwnProperty(formattedResult)) {
+						formattedResults[formattedResult].sort(function(a, b) {
+							return b.numberOfPicks - a.numberOfPicks
+						})
+					}
+				}
+				/*
+				formattedresults = {
+					"Pharah": [
+					{heroName:"McCree", numberOfPicks:1}
+					{heroName:"Genji", numberOfPicks:0}
+				], "McCree": [...]....
+				}
+
+				*/
+				// sort, then dump to page
+				var htmlString = Object.keys(formattedResults).map(function(key) {
+					return `<div class="individual-hero-result"><div class="title">Top ${key} Counters</div><div>` + formattedResults[key].map(function(counteringHeroStats) {
+						return `<div>${counteringHeroStats.heroName} - ${counteringHeroStats.numberOfPicks}</div>`
+					}).join("") + `</div></div>`
+				}).join("")
+				//
+				resultsElement.innerHTML = htmlString
+			}
+			createResults();
+		</script>
+	</body>
+
+</html>

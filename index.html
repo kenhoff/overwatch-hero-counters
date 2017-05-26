@@ -84,7 +84,12 @@
 				"Symmetra",
 				"Zenyatta",
 			];
-			var results = [];
+			var results;
+			if (localStorage.getItem("results")) {
+				results = JSON.parse(localStorage.getItem("results"))
+			} else {
+				results = [];
+			}
 			var form = document.getElementById("form")
 			currentQuestionObject = {};
 			var createQuestion = function(heroToCounter, heroOptionA, heroOptionB) {
@@ -139,6 +144,7 @@
 					heroOptionB: heroOptionB,
 					selection: selection
 				})
+				localStorage.setItem("results", JSON.stringify(results));
 				createResults();
 				currentQuestionObject = generateQuestionObject();
 				createQuestion(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB);

@@ -3,10 +3,13 @@
 	<head>
 		<meta charset="utf-8">
 		<title>Overwatch Hero Counters</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/fingerprintjs2/1.5.1/fingerprint2.min.js" integrity="sha256-lzxBdwcj4Cy4DTUzZmAXH3TjFgKmP1L8IhZRkOlLCnw=" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/superagent/3.5.2/superagent.min.js" integrity="sha256-+Q9O9GgDgx2GQxSNMzEIYgzPhcJWwURnlq46eymtmEE=" crossorigin="anonymous"></script>
 		<style media="screen">
 			* {
 				box-sizing: border-box;
 			}
+
 			body {
 				text-align: center;
 			}
@@ -31,17 +34,20 @@
 				margin: 1em;
 				cursor: pointer;
 			}
+
 			#results {
 				display: flex;
 				justify-content: center;
 				flex-wrap: wrap;
 				text-align: center;
 			}
+
 			.individual-hero-result {
 				background-color: lightgray;
 				margin: 1em;
 				padding: 1em;
 			}
+
 			.individual-hero-result .title {
 				font-weight: bold;
 				margin-bottom: 1em;
@@ -58,6 +64,7 @@
 
 		</div>
 		<script type="text/javascript">
+			var request = superagent;
 			var heroes = [
 				"Genji",
 				"McCree",
@@ -84,12 +91,6 @@
 				"Symmetra",
 				"Zenyatta",
 			];
-			var results;
-			if (localStorage.getItem("results")) {
-				results = JSON.parse(localStorage.getItem("results"))
-			} else {
-				results = [];
-			}
 			var form = document.getElementById("form")
 			currentQuestionObject = {};
 			var createQuestion = function(heroToCounter, heroOptionA, heroOptionB) {
@@ -111,43 +112,25 @@
 				}
 			};
 			var recordResults = function(heroToCounter, heroOptionA, heroOptionB, selection) {
-				var otherHero;
-				if (selection == heroOptionA) {
-					otherHero = heroOptionB;
-				} else {
-					otherHero = heroOptionA;
-				}
-				// console.log(`In a team fight against ${heroToCounter}, ${selection} is a better pick than ${otherHero}.`);
 				// now, figure out if this matchup has already occurred in the results section. find a result where heroToCounter matches, and where the combination of heroOptionA and heroOptionB is the same
-				resultIndex = results.findIndex(function(result) {
-					if (result.heroToCounter == heroToCounter) {
-						// heroOptionA and heroOptionB must be the same, or heroOptionB == heroOptionA && heroOptionA == heroOptionB
-						if ((result.heroOptionA == heroOptionA) && (result.heroOptionB == heroOptionB)) {
-							return true;
-						} else if ((result.heroOptionB == heroOptionA) && (result.heroOptionA == heroOptionB)) {
-							return true
-						} else {
-							return false
-						}
-					} else {
-						return false;
+
+				// send choice to server
+				new Fingerprint2().get(function(result, components) {
+					var options = {
+						id: result,
+						heroToCounter: heroToCounter,
+						heroOptionA: heroOptionA,
+						heroOptionB: heroOptionB,
+						selection: selection
 					}
-				})
-				if (resultIndex != -1) {
-					// remove old result
-					results.splice(resultIndex, 1)
-				}
-				// push new result
-				results.push({
-					heroToCounter: heroToCounter,
-					heroOptionA: heroOptionA,
-					heroOptionB: heroOptionB,
-					selection: selection
-				})
-				localStorage.setItem("results", JSON.stringify(results));
-				createResults();
-				currentQuestionObject = generateQuestionObject();
-				createQuestion(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB);
+					request.post("/responses").send(options).end(function(err, response) {
+						// get the latest results from the server
+						fetchLatestResults();
+						currentQuestionObject = generateQuestionObject();
+						createQuestion(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB);
+					})
+				});
+
 			}
 			var generateQuestionObject = function() {
 				var newHeroes = heroes.slice();
@@ -158,72 +141,21 @@
 				}
 			}
 
+			var fetchLatestResults = function() {
+				request.get("/responses").end(function(err, response) {
+					var resultsElement = document.getElementById("results");
+					var htmlString = Object.keys(response.body).map(function(key) {
+							return `<div class="individual-hero-result"><div class="title">Top ${key} Counters</div><div>` + response.body[key].map(function(counteringHeroStats) {
+								return `<div>${counteringHeroStats.heroName} - ${counteringHeroStats.numberOfPicks}</div>`
+							}).join("") + `</div></div>`
+						}).join("")
+						//
+					resultsElement.innerHTML = htmlString
+				})
+			}
+			fetchLatestResults();
 			currentQuestionObject = generateQuestionObject();
 			createQuestion(currentQuestionObject.heroToCounter, currentQuestionObject.heroOptionA, currentQuestionObject.heroOptionB);
-			var createResults = function() {
-				var resultsElement = document.getElementById("results");
-				// create initial formattedResults, with 0 counts across the board
-				var formattedResults = {}
-				// prefill formattedResults
-				// for (hero of heroes) {
-				// 	formattedResults[hero] = []
-				// 	for (counterHero of heroes) {
-				// 		formattedResults[hero].push({
-				// 			heroName: counterHero,
-				// 			numberOfPicks: 0
-				// 		})
-				// 	}
-				// }
-				// console.log(formattedResults);
-
-
-				// add counts into results, then sort
-				for (result of results) {
-					if (result.heroToCounter in formattedResults) {
-						var counteringHeroIndex = formattedResults[result.heroToCounter].findIndex(function(counteringHeroStats) {
-							return counteringHeroStats.heroName == result.selection;
-						})
-						if (counteringHeroIndex != -1) {
-							formattedResults[result.heroToCounter][counteringHeroIndex].numberOfPicks += 1;
-						} else {
-							formattedResults[result.heroToCounter].push({
-								heroName: result.selection,
-								numberOfPicks: 1
-							})
-						}
-					} else {
-						formattedResults[result.heroToCounter] = [{
-							heroName: result.selection,
-							numberOfPicks: 1
-						}];
-					}
-				}
-				for (var formattedResult in formattedResults) {
-					if (formattedResults.hasOwnProperty(formattedResult)) {
-						formattedResults[formattedResult].sort(function(a, b) {
-							return b.numberOfPicks - a.numberOfPicks
-						})
-					}
-				}
-				/*
-				formattedresults = {
-					"Pharah": [
-					{heroName:"McCree", numberOfPicks:1}
-					{heroName:"Genji", numberOfPicks:0}
-				], "McCree": [...]....
-				}
-
-				*/
-				// sort, then dump to page
-				var htmlString = Object.keys(formattedResults).map(function(key) {
-					return `<div class="individual-hero-result"><div class="title">Top ${key} Counters</div><div>` + formattedResults[key].map(function(counteringHeroStats) {
-						return `<div>${counteringHeroStats.heroName} - ${counteringHeroStats.numberOfPicks}</div>`
-					}).join("") + `</div></div>`
-				}).join("")
-				//
-				resultsElement.innerHTML = htmlString
-			}
-			createResults();
 		</script>
 	</body>
 
